@@ -12,7 +12,7 @@ install_deps_apt() {
     bash curl wget ca-certificates coreutils findutils grep sed gawk \
     util-linux mount fdisk gdisk parted kmod \
     e2fsprogs dosfstools xz-utils zstd gzip bzip2 tar unzip \
-    rsync pv file blkid
+    rsync pv file
 }
 
 install_deps_dnf() {
