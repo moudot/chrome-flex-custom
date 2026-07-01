@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LINUXLOOPS="./linuxloops-v2"
+LINUXLOOPS="./linuxloops-v2.sh"
 MOUNTPOINT="/mnt/chromeos-efi"
 CRDY_URL="https://github.com/supechicken/crdyboot/releases/download/20251207/crdyboot.efi"
 TMP_CRDY="/tmp/crdyboot.efi"
