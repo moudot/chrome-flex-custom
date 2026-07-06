@@ -4077,13 +4077,12 @@ if [ "${1}" == "iso" ]; then
 	fi
 elif [ "${1}" == "lxc" ]; then
 	master_key=E7FB0CAEC8173D669066514CBAEFF88C22F6E216
-	cur_speed=0; for lxcserver in https://sgp1lxdmirror01.do.letsbuildthe.cloud https://sfo3lxdmirror01.do.letsbuildthe.cloud https://fra1lxdmirror01.do.letsbuildthe.cloud; do if ! avg_speed=$(curl -4fsSL -m 5 -r 0-1048576 -w '%{speed_download}' -o /dev/null --url "${lxcserver}/images" 2> /dev/null); then avg_speed=0; fi; echo Download speed rating for mirror ${lxcserver} is ${avg_speed}; if [ ${avg_speed} -gt ${cur_speed} ]; then cur_speed=${avg_speed}; lxc_mirror=${lxcserver}; fi; done; echo Using mirror ${lxc_mirror}
-	available_builds=$(curl -Ls ${lxc_mirror}/images/"${2}"/"${3}"/amd64/"${4}"/ | tr '>' '\n' | grep '<a href' | cut -d '=' -f2 | cut -d'"' -f2 | cut -d'/' -f1 | sort -r)
+	cur_speed=0; for lxcserver in https://sgp1mirror01.do.images.linuxcontainers.org https://sfo3mirror01.do.images.linuxcontainers.org https://fra1mirror01.do.images.linuxcontainers.org; do if ! avg_speed=$(curl -4fsSL -m 5 -r 0-1048576 -w '%{speed_download}' -o /dev/null --url "${lxcserver}/images" 2> /dev/null); then avg_speed=0; fi; echo Download speed rating for mirror ${lxcserver} is ${avg_speed}; if [ ${avg_speed} -gt ${cur_speed} ]; then cur_speed=${avg_speed}; lxc_mirror=${lxcserver}; fi; done; echo Using mirror ${lxc_mirror}
+	available_builds=$(curl -Ls https://fra1mirror01.do.images.linuxcontainers.org  | sed -e 's@<@\n@g' | grep 'a href' | cut -d'"' -f2 | grep "/images/${2}/${3}/amd64/${4}")
 	for build in ${available_builds}; do
-		if [ "${build}" == "" ] || [ "${build}" == ".." ] || ! curl -L --output /dev/null --silent --head --fail ${lxc_mirror}/images/"${2}"/"${3}"/amd64/"${4}"/"${build}"/rootfs.tar.xz; then continue; fi
 		echo "Downloading lxc rootfs checksum"
 		rm -f "${linuxloopsdir}"/cache/"${2}"-SHA256SUMS
-		sudo -u ${SUDO_USER} curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f ${lxc_mirror}/images/"${2}"/"${3}"/amd64/"${4}"/"${build}"/SHA256SUMS -o "${linuxloopsdir}"/cache/"${2}"-SHA256SUMS
+		sudo -u ${SUDO_USER} curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f "${lxc_mirror}${build}SHA256SUMS" -o "${linuxloopsdir}"/cache/"${2}"-SHA256SUMS
 		if [ -f "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz ] && [ -f "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz.asc ] && [ "$(sha256sum ${linuxloopsdir}/cache/${2}-rootfs.tar.xz | cut -d' ' -f1)" == "$(cat ${linuxloopsdir}/cache/${2}-SHA256SUMS | grep rootfs.tar.xz | cut -d' ' -f1)" ]; then
 			if [ -z "$(command -v gpg)" ] || [ -z "$(command -v dirmngr)" ] || [ -z "${master_key}" ]; then skip_gpg=1; fi
 			if ([ ${skip_gpg} -eq 1 ] || sudo -u ${SUDO_USER} gpg --homedir "${linuxloopsdir}"/gnupg --verify "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz.asc "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz) && tar xf "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz -C "${bootstrapdir}"; then
@@ -4093,8 +4092,8 @@ elif [ "${1}" == "lxc" ]; then
 			fi
 		fi
 		rm -f "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz*
-		echo "Downloading lxc rootfs image from ${lxc_mirror}/images/${2}/${3}/amd64/${4}/${build}/rootfs.tar.xz..."
-		if ! sudo -u ${SUDO_USER} curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f ${lxc_mirror}/images/"${2}"/"${3}"/amd64/"${4}"/"${build}"/rootfs.tar.xz -o "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz; then if [ "${install_type}" == "image" ]; then losetup -d "${destination_device}"; fi; exit_with_error "Download of ${2} lxc image from ${lxc_mirror}/images/${2}/${3}/amd64/${4}/${build}/rootfs.tar.xz failed."; fi
+		echo "Downloading lxc rootfs image from ${lxc_mirror}${build}rootfs.tar.xz..."
+		if ! sudo -u ${SUDO_USER} curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f "${lxc_mirror}${build}rootfs.tar.xz" -o "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz; then if [ "${install_type}" == "image" ]; then losetup -d "${destination_device}"; fi; exit_with_error "Download of ${2} lxc image from ${lxc_mirror}${build}rootfs.tar.xz failed."; fi
 		echo "Verifying lxc rootfs checksum"
 		if [ "$(sha256sum ${linuxloopsdir}/cache/${2}-rootfs.tar.xz | cut -d' ' -f1)" == "$(cat ${linuxloopsdir}/cache/${2}-SHA256SUMS | grep rootfs.tar.xz | cut -d' ' -f1)" ]; then
 			if [ -z "$(command -v gpg)" ] || [ -z "$(command -v dirmngr)" ]; then
@@ -4107,7 +4106,7 @@ elif [ "${1}" == "lxc" ]; then
 				echo "Importing lxc master key"
 				sudo -u ${SUDO_USER} gpg --homedir "${linuxloopsdir}"/gnupg --keyserver hkp://keyserver.ubuntu.com:80 --recv "${master_key}"
 				echo "Downloading lxc rootfs signature"
-				sudo -u ${SUDO_USER} curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f ${lxc_mirror}/images/"${2}"/"${3}"/amd64/"${4}"/"${build}"/rootfs.tar.xz.asc -o "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz.asc
+				sudo -u ${SUDO_USER} curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f ${lxc_mirror}${build}rootfs.tar.xz.asc -o "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz.asc
 				echo "Verifying lxc rootfs signature"
 			fi
 			if [ ${skip_gpg} -eq 1 ] || sudo -u ${SUDO_USER} gpg --homedir "${linuxloopsdir}"/gnupg --verify "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz.asc "${linuxloopsdir}"/cache/"${2}"-rootfs.tar.xz; then
@@ -4140,12 +4139,12 @@ elif [ "${1}" == "rootfs-xz" ]; then
 		if ([ ${skip_gpg} -eq 1 ] || sudo -u ${SUDO_USER} gpg --homedir "${linuxloopsdir}"/gnupg --verify "${linuxloopsdir}"/cache/"${distribution}"-rootfs.tar.xz.asc "${linuxloopsdir}"/cache/"${distribution}"-rootfs.tar.xz"${gpg_check_extension}") && tar xf "${linuxloopsdir}"/cache/"${distribution}"-rootfs.tar.xz -C "${bootstrapdir}"; then
 			echo "Using cached xz rootfs."
 			rm -f "${linuxloopsdir}"/cache/"${distribution}"-rootfs.tar.xz.sha256sum*
-			return 0	
+			return 0
 		fi
 	fi
 	rm -f "${linuxloopsdir}"/cache/"${distribution}"-rootfs.tar.xz{,.asc}
 	echo "Downloading ${distribution} rootfs image from ${2}"
-	for i in 1 .. 3; do
+	for i in {1..3}; do
 		if sudo -u ${SUDO_USER} curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f "${2}" -o "${linuxloopsdir}"/cache/"${distribution}"-rootfs.tar.xz; then
 			if sha256sum -c "${linuxloopsdir}"/cache/"${distribution}"-rootfs.tar.xz.sha256sum.mod; then
 				echo "sha256sum verification succeeded"
@@ -4185,6 +4184,7 @@ fi
 if [ "${install_type}" == "image" ]; then losetup -d "${destination_device}"; fi
 exit_with_error "Download of bootstrap image failed."
 }
+
 
 bootstrap()
 {
