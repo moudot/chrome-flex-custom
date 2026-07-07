@@ -1061,12 +1061,15 @@ cat >"${bootstrapdir}"/tmp/linuxloops/prepare_bootstrap <<PREPARE_BOOTSTRAP
 #!/bin/bash
 set -e
 sed -i 's@#ParallelDownloads@ParallelDownloads@g' /etc/pacman.conf
+curl https://archlinux.org/mirrorlist/all/ -o /etc/pacman.d/mirrorlist
 curl --progress-bar --connect-timeout 60 --retry 10 --retry-delay 1 -L -f https://archlinux.org/mirrorlist/?ip_version=4 -o /etc/pacman.d/mirrorlist
 if [ ! -z "${mirror_Arch}" ]; then
 	echo 'Server = ${mirror_Arch}/\$repo/os/\$arch' >> /etc/pacman.d/mirrorlist
 else
 	cur_speed=0; for i in https://geo.mirror.pkgbuild.com https://mirrors.rit.edu/archlinux https://archlinux.mirror.digitalpacific.com.au; do if ! avg_speed=\$(curl -fsS -m 5 -r 0-1048576 -w '%{speed_download}' -o /dev/null --url "\${i}/core/os/x86_64/core.db" 2> /dev/null); then avg_speed=0; fi; echo Download speed rating for mirror \${i} is \${avg_speed}; if [ \${avg_speed} -gt \${cur_speed} ]; then cur_speed=\${avg_speed}; default_mirror=\${i}; fi; done; echo Using mirror \${default_mirror}; sed -i "s@#Server = \${default_mirror}@Server = \${default_mirror}@g" /etc/pacman.d/mirrorlist
 fi
+pacman-key --init
+pacman-key --populate
 pacman -Syu --noconfirm --needed bash bash-completion busybox bzip2 ca-certificates coreutils cpio cryptsetup curl dosfstools e2fsprogs efibootmgr gzip libarchive lsof nano ntfs-3g openssl sbsigntools sudo strace tar util-linux unzip xz zstd
 PREPARE_BOOTSTRAP
 chmod 0755 "${bootstrapdir}"/tmp/linuxloops/prepare_bootstrap
